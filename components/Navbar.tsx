@@ -18,7 +18,6 @@ type SessionUser = {
 export default function Navbar({ brand = "SchoolMgmt" }: { brand?: string }) {
   const [open, setOpen] = useState(false);
   const [user, setUser] = useState<SessionUser | null>(null);
-  const [signoutMessage, setSignoutMessage] = useState<string | null>(null);
   const pathname = usePathname();
 
   // Build callbackUrl so users return to current page after sign-in
@@ -60,14 +59,6 @@ export default function Navbar({ brand = "SchoolMgmt" }: { brand?: string }) {
       subscription.unsubscribe();
     };
   }, []);
-
-  const handleSignOut = async () => {
-    await supabase.auth.signOut();
-    setSignoutMessage("Signed out successfully.");
-    setTimeout(() => {
-      setSignoutMessage(null);
-    }, 1500);
-  };
 
   const avatarContent = () => {
     if (user?.image) {
@@ -141,7 +132,9 @@ export default function Navbar({ brand = "SchoolMgmt" }: { brand?: string }) {
                   Dashboard
                 </Link>
                 <button
-                  onClick={handleSignOut}
+                  onClick={async () => {
+                    await supabase.auth.signOut();
+                  }}
                   className="px-3 py-1 bg-red-50 text-red-600 rounded text-sm border"
                 >
                   Sign out
@@ -264,7 +257,7 @@ export default function Navbar({ brand = "SchoolMgmt" }: { brand?: string }) {
                       <button
                         onClick={async () => {
                           setOpen(false);
-                          await handleSignOut();
+                          await supabase.auth.signOut();
                         }}
                         className="w-full text-left px-2 py-2 rounded hover:bg-indigo-800/50"
                       >
@@ -298,13 +291,6 @@ export default function Navbar({ brand = "SchoolMgmt" }: { brand?: string }) {
           </motion.nav>
         )}
       </AnimatePresence>
-      {signoutMessage && (
-        <div className="fixed inset-x-0 top-16 flex justify-center z-[60]">
-          <div className="bg-emerald-600 text-white text-sm px-4 py-2 rounded-full shadow-lg">
-            {signoutMessage}
-          </div>
-        </div>
-      )}
     </header>
   );
 }

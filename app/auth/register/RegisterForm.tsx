@@ -15,10 +15,12 @@ export default function RegisterForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [role, setRole] = useState<'admin' | 'teacher' | 'student'>("student");
+  const [info, setInfo] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setInfo(null);
     setLoading(true);
 
     const { data, error } = await supabase.auth.signUp({
@@ -54,7 +56,9 @@ export default function RegisterForm() {
       return;
     }
 
-    router.push(callbackUrl);
+    setInfo(
+      "Registration successful. We've sent a confirmation email to your address. Please verify your email before signing in."
+    );
   };
 
   return (
@@ -65,6 +69,12 @@ export default function RegisterForm() {
         {error && (
           <div className="mb-4 text-sm text-red-600 bg-red-50 p-2 rounded">
             {error}
+          </div>
+        )}
+
+        {info && (
+          <div className="mb-4 text-sm text-emerald-800 bg-emerald-50 border border-emerald-100 px-3 py-2 rounded-md">
+            {info}
           </div>
         )}
 
