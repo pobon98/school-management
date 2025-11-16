@@ -1,9 +1,25 @@
 "use client";
 
+import { useEffect } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 export default function HomePage() {
+  const router = useRouter();
+
+  useEffect(() => {
+    // When Supabase finishes email confirmation, it may redirect to the root URL
+    // with an auth hash (e.g. #access_token=...). In that case, send the user
+    // to the signin page with a verified flag so they see the success message.
+    if (typeof window !== "undefined") {
+      const hash = window.location.hash || "";
+      if (hash.includes("access_token") || hash.includes("type=signup")) {
+        router.replace("/auth/signin?verified=1");
+      }
+    }
+  }, [router]);
+
   return (
     <main className="flex flex-col items-center justify-center">
       {/* HERO SECTION */}

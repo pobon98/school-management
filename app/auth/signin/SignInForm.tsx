@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "../../../lib/supabase-client";
@@ -9,6 +9,7 @@ export default function SignInForm() {
   const router = useRouter();
   const params = useSearchParams();
   const callbackUrl = params?.get("callbackUrl") ?? "/dashboard";
+  const verified = params?.get("verified") === "1";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -16,6 +17,21 @@ export default function SignInForm() {
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [success, setSuccess] = useState<string | null>(null);
+  const [fromConfirmation, setFromConfirmation] = useState(false);
+
+  // Detect Supabase confirmation redirect even if verified query is missing
+  useEffect(() => {
+    if (verified) {
+      setFromConfirmation(true);
+      return;
+    }
+    if (typeof window !== "undefined") {
+      const hash = window.location.hash || "";
+      if (hash.includes("access_token") || hash.includes("type=signup")) {
+        setFromConfirmation(true);
+      }
+    }
+  }, [verified]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -54,6 +70,12 @@ export default function SignInForm() {
           <h1 className="text-2xl font-semibold tracking-tight">Welcome back</h1>
           <p className="mt-1 text-sm text-gray-500">Sign in to access your dashboard and classes.</p>
         </div>
+
+        {(fromConfirmation || verified) && (
+          <div className="mb-4 text-sm text-emerald-800 bg-emerald-50 border border-emerald-100 px-3 py-2 rounded-md">
+            Registration successful. You can now sign in with your email and password.
+          </div>
+        )}
 
         {error && (
           <div className="mb-4 text-sm text-red-700 bg-red-50 border border-red-100 px-3 py-2 rounded-md">
