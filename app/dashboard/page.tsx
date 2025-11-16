@@ -9,6 +9,17 @@ interface Profile {
   role: 'admin' | 'teacher' | 'student';
 }
 
+function nameFromEmail(email: string | null): string {
+  if (!email) return '';
+  const local = email.split('@')[0];
+  const parts = local
+    .split(/[._-]+/)
+    .filter(Boolean)
+    .map((p) => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase());
+  if (!parts.length) return email;
+  return parts.join(' ');
+}
+
 function AdminPanel() {
   return (
     <div className="space-y-2">
@@ -87,10 +98,13 @@ export default function DashboardPage() {
 
   if (authLoading || loading)
     return (
-      <main className="min-h-[60vh] flex items-center justify-center bg-slate-50 px-4">
-        <div className="flex items-center gap-3 rounded-full bg-white/80 px-4 py-2 shadow-sm border border-slate-200">
-          <span className="h-2 w-2 rounded-full bg-indigo-500 animate-pulse" />
-          <span className="text-sm text-slate-700">Loading your dashboard...</span>
+      <main className="min-h-screen flex items-center justify-center bg-slate-50 px-4">
+        <div className="flex flex-col items-center gap-4">
+          <div className="flex items-center gap-3">
+            <div className="h-3 w-3 rounded-full bg-indigo-500 animate-pulse" />
+            <div className="h-7 w-7 rounded-full border-2 border-indigo-500 border-t-transparent animate-spin" />
+          </div>
+          <div className="text-sm text-slate-700">Signing you in and loading your dashboard...</div>
         </div>
       </main>
     );
@@ -124,7 +138,7 @@ export default function DashboardPage() {
                 {profile.role}
               </span>
             </div>
-            <p className="text-[11px] break-all">{profile.email}</p>
+            <p className="text-[11px] break-all">{nameFromEmail(profile.email)}</p>
           </div>
         </header>
 

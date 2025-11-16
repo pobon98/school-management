@@ -18,6 +18,7 @@ type SessionUser = {
 export default function Navbar({ brand = "SchoolMgmt" }: { brand?: string }) {
   const [open, setOpen] = useState(false);
   const [user, setUser] = useState<SessionUser | null>(null);
+  const [signingOut, setSigningOut] = useState(false);
   const pathname = usePathname();
 
   // Build callbackUrl so users return to current page after sign-in
@@ -59,6 +60,12 @@ export default function Navbar({ brand = "SchoolMgmt" }: { brand?: string }) {
       subscription.unsubscribe();
     };
   }, []);
+
+  const handleSignOut = async () => {
+    setSigningOut(true);
+    await supabase.auth.signOut();
+    setSigningOut(false);
+  };
 
   const avatarContent = () => {
     if (user?.image) {
@@ -132,10 +139,8 @@ export default function Navbar({ brand = "SchoolMgmt" }: { brand?: string }) {
                   Dashboard
                 </Link>
                 <button
-                  onClick={async () => {
-                    await supabase.auth.signOut();
-                  }}
-                  className="px-3 py-1 bg-red-50 text-red-600 rounded text-sm border"
+                  onClick={handleSignOut}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-red-500 px-3.5 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-red-600 transition-colors"
                 >
                   Sign out
                 </button>
@@ -257,7 +262,7 @@ export default function Navbar({ brand = "SchoolMgmt" }: { brand?: string }) {
                       <button
                         onClick={async () => {
                           setOpen(false);
-                          await supabase.auth.signOut();
+                          await handleSignOut();
                         }}
                         className="w-full text-left px-2 py-2 rounded hover:bg-indigo-800/50"
                       >
@@ -291,6 +296,17 @@ export default function Navbar({ brand = "SchoolMgmt" }: { brand?: string }) {
           </motion.nav>
         )}
       </AnimatePresence>
+      {signingOut && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40">
+          <div className="flex flex-col items-center gap-3 rounded-2xl bg-white px-6 py-4 shadow-lg">
+            <div className="flex items-center gap-3">
+              <div className="h-3 w-3 rounded-full bg-indigo-500 animate-pulse" />
+              <div className="h-7 w-7 rounded-full border-2 border-indigo-500 border-t-transparent animate-spin" />
+            </div>
+            <p className="text-sm text-slate-700">Signing you out...</p>
+          </div>
+        </div>
+      )}
     </header>
   );
 }
