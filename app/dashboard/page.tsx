@@ -99,13 +99,7 @@ export default function DashboardPage() {
   if (authLoading || loading)
     return (
       <main className="min-h-screen flex items-center justify-center bg-slate-50 px-4">
-        <div className="flex flex-col items-center gap-4">
-          <div className="flex items-center gap-3">
-            <div className="h-3 w-3 rounded-full bg-indigo-500 animate-pulse" />
-            <div className="h-7 w-7 rounded-full border-2 border-indigo-500 border-t-transparent animate-spin" />
-          </div>
-          <div className="text-sm text-slate-700">Signing you in and loading your dashboard...</div>
-        </div>
+        <p className="text-sm text-slate-700">Loading your dashboard...</p>
       </main>
     );
 

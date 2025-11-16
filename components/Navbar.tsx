@@ -18,7 +18,6 @@ type SessionUser = {
 export default function Navbar({ brand = "SchoolMgmt" }: { brand?: string }) {
   const [open, setOpen] = useState(false);
   const [user, setUser] = useState<SessionUser | null>(null);
-  const [signingOut, setSigningOut] = useState(false);
   const pathname = usePathname();
 
   // Build callbackUrl so users return to current page after sign-in
@@ -62,9 +61,7 @@ export default function Navbar({ brand = "SchoolMgmt" }: { brand?: string }) {
   }, []);
 
   const handleSignOut = async () => {
-    setSigningOut(true);
     await supabase.auth.signOut();
-    setSigningOut(false);
   };
 
   const avatarContent = () => {
@@ -296,17 +293,6 @@ export default function Navbar({ brand = "SchoolMgmt" }: { brand?: string }) {
           </motion.nav>
         )}
       </AnimatePresence>
-      {signingOut && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40">
-          <div className="flex flex-col items-center gap-3 rounded-2xl bg-white px-6 py-4 shadow-lg">
-            <div className="flex items-center gap-3">
-              <div className="h-3 w-3 rounded-full bg-indigo-500 animate-pulse" />
-              <div className="h-7 w-7 rounded-full border-2 border-indigo-500 border-t-transparent animate-spin" />
-            </div>
-            <p className="text-sm text-slate-700">Signing you out...</p>
-          </div>
-        </div>
-      )}
     </header>
   );
 }
