@@ -1,3 +1,5 @@
+import AdmissionForm from "./AdmissionForm";
+
 export default function AdmissionPage() {
   return (
     <main className="min-h-[calc(100vh-4rem)] bg-slate-50 px-4 py-10">
@@ -30,13 +32,16 @@ export default function AdmissionPage() {
               <li>• Passport size photographs</li>
             </ul>
           </div>
-          <div className="rounded-2xl bg-white shadow-sm border border-slate-100 px-5 py-5">
-            <h3 className="text-sm font-semibold text-slate-900">Need help?</h3>
-            <p className="mt-2 text-xs text-slate-700">
-              For more information about admissions, you can reach the school office
-              during working hours or send us an email. We will guide you through the
-              process.
-            </p>
+          <div className="space-y-4">
+            <div className="rounded-2xl bg-white shadow-sm border border-slate-100 px-5 py-5">
+              <h3 className="text-sm font-semibold text-slate-900">Need help?</h3>
+              <p className="mt-2 text-xs text-slate-700">
+                For more information about admissions, you can reach the school office
+                during working hours or send us an email. We will guide you through the
+                process.
+              </p>
+            </div>
+            <AdmissionForm />
           </div>
         </section>
       </div>

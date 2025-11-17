@@ -18,6 +18,7 @@ type SessionUser = {
 export default function Navbar({ brand = "SchoolMgmt" }: { brand?: string }) {
   const [open, setOpen] = useState(false);
   const [user, setUser] = useState<SessionUser | null>(null);
+  const [hasNewEvents, setHasNewEvents] = useState(false);
   const pathname = usePathname();
 
   // Build callbackUrl so users return to current page after sign-in
@@ -60,8 +61,73 @@ export default function Navbar({ brand = "SchoolMgmt" }: { brand?: string }) {
     };
   }, []);
 
+  // Check if there are any events that this user hasn't seen yet.
+  // For signed-in users, we compare latest event created_at with their last_seen_at in event_views.
+  // For guests, we fall back to simple "any event in last 7 days" logic.
+  useEffect(() => {
+    const checkNewEvents = async () => {
+      const { data: latestEvents } = await supabase
+        .from("events")
+        .select("created_at")
+        .order("created_at", { ascending: false })
+        .limit(1);
+
+      if (!latestEvents || !latestEvents.length) {
+        setHasNewEvents(false);
+        return;
+      }
+
+      const latestCreated = new Date((latestEvents[0] as any).created_at as string);
+      const now = new Date();
+      const diffDays = (now.getTime() - latestCreated.getTime()) / (1000 * 60 * 60 * 24);
+
+      // If no user, just show badge when there is a recent event
+      if (!user?.id) {
+        setHasNewEvents(diffDays <= 7);
+        return;
+      }
+
+      // For signed-in users, check last seen timestamp
+      const { data: viewRow } = await supabase
+        .from("event_views")
+        .select("last_seen_at")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      const lastSeenStr = (viewRow as any)?.last_seen_at as string | undefined;
+      const lastSeen = lastSeenStr ? new Date(lastSeenStr) : null;
+
+      // If never seen, treat as new (but still only within 7 days)
+      if (!lastSeen) {
+        setHasNewEvents(diffDays <= 7);
+        return;
+      }
+
+      const isUnseen = latestCreated > lastSeen;
+      setHasNewEvents(isUnseen && diffDays <= 7);
+    };
+
+    checkNewEvents();
+  }, [user?.id]);
+
   const handleSignOut = async () => {
     await supabase.auth.signOut();
+  };
+
+  const markEventsSeen = async () => {
+    if (!user?.id) return;
+
+    setHasNewEvents(false);
+
+    await supabase
+      .from("event_views")
+      .upsert(
+        {
+          user_id: user.id,
+          last_seen_at: new Date().toISOString(),
+        },
+        { onConflict: "user_id" }
+      );
   };
 
   const avatarContent = () => {
@@ -113,8 +179,17 @@ export default function Navbar({ brand = "SchoolMgmt" }: { brand?: string }) {
               <Link href="/admission" className="hover:underline">
                 Admission
               </Link>
-              <Link href="/events" className="hover:underline">
-                Events
+              <Link
+                href="/events"
+                onClick={markEventsSeen}
+                className="hover:underline inline-flex items-center gap-1"
+              >
+                <span>Events</span>
+                {hasNewEvents && (
+                  <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
+                    New
+                  </span>
+                )}
               </Link>
             </nav>
           </div>
@@ -231,10 +306,18 @@ export default function Navbar({ brand = "SchoolMgmt" }: { brand?: string }) {
 
               <Link
                 href="/events"
-                onClick={() => setOpen(false)}
-                className="block px-3 py-2 rounded hover:bg-indigo-800/50 transition"
+                onClick={async () => {
+                  setOpen(false);
+                  await markEventsSeen();
+                }}
+                className="flex items-center justify-between px-3 py-2 rounded hover:bg-indigo-800/50 transition"
               >
-                Events
+                <span>Events</span>
+                {hasNewEvents && (
+                  <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-800">
+                    New
+                  </span>
+                )}
               </Link>
 
               <div className="border-t pt-3">
