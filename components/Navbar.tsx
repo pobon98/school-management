@@ -39,10 +39,19 @@ export default function Navbar({ brand = "SchoolMgmt" }: { brand?: string }) {
         return;
       }
 
+      // Load role from profiles table so role-based UI (like Manage events) works reliably
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", authUser.id)
+        .maybeSingle();
+
+      const profileRole = (profile?.role as string | null)?.toLowerCase() ?? null;
+
       setUser({
         id: authUser.id,
         email: authUser.email,
-        role: (authUser.user_metadata as any)?.role ?? null,
+        role: profileRole,
         name: (authUser.user_metadata as any)?.name ?? null,
         image: (authUser.user_metadata as any)?.avatar_url ?? null,
       });
@@ -339,6 +348,17 @@ export default function Navbar({ brand = "SchoolMgmt" }: { brand?: string }) {
                       >
                         Dashboard
                       </Link>
+
+                      {role.toLowerCase() === "admin" && (
+                        <Link
+                          href="/dashboard/events"
+                          onClick={() => setOpen(false)}
+                          className="block px-2 py-2 rounded hover:bg-indigo-800/50 text-xs text-indigo-100/90"
+                        >
+                          Manage events
+                        </Link>
+                      )}
+
                       <button
                         onClick={async () => {
                           setOpen(false);
