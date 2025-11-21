@@ -43,6 +43,52 @@ export default function DashboardStudentsPage() {
 
   useEffect(() => {
     const loadStudents = async () => {
+      if (!user || !role) return;
+
+      // If the logged-in user is a student, only show classmates from their class
+      if (role === "student") {
+        if (!user.email) {
+          setStudents([]);
+          setLoading(false);
+          return;
+        }
+
+        const { data: studentRow, error: studentLookupError } = await supabase
+          .from("students")
+          .select("class")
+          .eq("email", user.email)
+          .maybeSingle();
+
+        if (studentLookupError) {
+          setError(studentLookupError.message);
+          setStudents([]);
+          setLoading(false);
+          return;
+        }
+
+        const studentClassValue = (studentRow as any)?.class as string | null;
+        if (!studentClassValue) {
+          setStudents([]);
+          setLoading(false);
+          return;
+        }
+
+        const { data, error } = await supabase
+          .from("students")
+          .select("id, name, class, roll_no, email")
+          .eq("class", studentClassValue)
+          .order("roll_no", { ascending: true });
+
+        if (error) {
+          setError(error.message);
+        } else if (data) {
+          setStudents(data as Student[]);
+        }
+        setLoading(false);
+        return;
+      }
+
+      // Admins (and future teachers) can see all students
       const { data, error } = await supabase
         .from("students")
         .select("id, name, class, roll_no, email")
@@ -56,7 +102,7 @@ export default function DashboardStudentsPage() {
     };
 
     loadStudents();
-  }, []);
+  }, [user, role]);
 
   useEffect(() => {
     const loadAssignmentsForStudent = async () => {

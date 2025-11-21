@@ -88,6 +88,9 @@ export default function DashboardPage() {
   const [newAudience, setNewAudience] = useState<'all' | 'teachers' | 'students'>('all');
   const [savingAnn, setSavingAnn] = useState(false);
   const [studentAssignmentCount, setStudentAssignmentCount] = useState<number | null>(null);
+  const [displayName, setDisplayName] = useState('');
+  const [teacherClasses, setTeacherClasses] = useState<string[]>([]);
+  const [teacherClassesLoading, setTeacherClassesLoading] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -119,6 +122,46 @@ export default function DashboardPage() {
   }, [user]);
 
   useEffect(() => {
+    const resolveDisplayName = async () => {
+      if (!profile) return;
+
+      const baseName = nameFromEmail(profile.email);
+
+      // For students, try to use the name from the students table based on email
+      if (profile.role === 'student' && profile.email) {
+        const { data: studentRow } = await supabase
+          .from('students')
+          .select('name')
+          .eq('email', profile.email)
+          .maybeSingle();
+
+        const studentName = (studentRow as any)?.name as string | undefined;
+        setDisplayName(studentName && studentName.trim().length > 0 ? studentName : baseName);
+        return;
+      }
+
+      // For teachers, try to use the name from the teachers table based on email
+      if (profile.role === 'teacher' && profile.email) {
+        const { data: teacherRow } = await supabase
+          .from('teachers')
+          .select('first_name, last_name')
+          .eq('email', profile.email)
+          .maybeSingle();
+
+        const first = (teacherRow as any)?.first_name as string | undefined;
+        const last = (teacherRow as any)?.last_name as string | undefined;
+        const teacherName = `${first ?? ''} ${last ?? ''}`.trim();
+        setDisplayName(teacherName.length > 0 ? teacherName : baseName);
+        return;
+      }
+
+      setDisplayName(baseName);
+    };
+
+    resolveDisplayName();
+  }, [profile]);
+
+  useEffect(() => {
     const loadStudentAssignments = async () => {
       if (!profile || profile.role !== 'student' || !profile.email) return;
 
@@ -141,6 +184,34 @@ export default function DashboardPage() {
 
     loadStudentAssignments();
   }, [profile]);
+
+  useEffect(() => {
+    const loadTeacherClasses = async () => {
+      if (!profile || profile.role !== 'teacher' || !user) return;
+
+      setTeacherClassesLoading(true);
+      const { data, error } = await supabase
+        .from('assignments')
+        .select('class')
+        .eq('created_by', user.id)
+        .not('class', 'is', null);
+
+      if (!error && data) {
+        const cls = Array.from(
+          new Set(
+            (data as any[])
+              .map((row) => (row.class as string | null) ?? '')
+              .filter((c) => c && c.trim().length > 0)
+          )
+        ).sort();
+        setTeacherClasses(cls);
+      }
+
+      setTeacherClassesLoading(false);
+    };
+
+    loadTeacherClasses();
+  }, [profile, user]);
 
   useEffect(() => {
     const fetchAnnouncements = async () => {
@@ -187,18 +258,30 @@ export default function DashboardPage() {
 
   const isNonAdmin = profile.role !== 'admin';
 
+  const heroGradientClasses =
+    profile.role === 'teacher'
+      ? 'from-emerald-600 via-teal-600 to-slate-900'
+      : 'from-indigo-600 via-purple-600 to-slate-900';
+
   return (
     <main className="min-h-[calc(100vh-4rem)] bg-slate-50 px-4 py-8">
       <div className="max-w-5xl mx-auto space-y-6">
         {/* Hero */}
-        <div className="rounded-3xl bg-gradient-to-r from-indigo-600 via-purple-600 to-slate-900 text-white px-6 py-6 shadow-md flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div
+          className={
+            "rounded-3xl bg-gradient-to-r text-white px-6 py-6 shadow-md flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between " +
+            heroGradientClasses
+          }
+        >
           <div>
             <p className="text-xs uppercase tracking-[0.18em] text-indigo-100/80 mb-1">Welcome back</p>
             <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight">
-              {nameFromEmail(profile.email)}
+              {displayName}
             </h1>
             <p className="mt-1 text-sm text-indigo-100/90 max-w-md">
-              Here's a quick overview of what's happening in your school today.
+              {profile.role === 'teacher'
+                ? "Here's a quick overview of your classes, students, and assignments."
+                : "Here's a quick overview of what's happening in your school today."}
             </p>
           </div>
           <a
@@ -238,7 +321,7 @@ export default function DashboardPage() {
               {profile.role}
             </span>
           </div>
-          <p className="text-[11px] break-all">{nameFromEmail(profile.email)}</p>
+          <p className="text-[11px] break-all">{displayName}</p>
         </div>
 
         {/* Stats row */}
@@ -259,6 +342,54 @@ export default function DashboardPage() {
             <p className="mt-1 text-xs text-slate-500">Upcoming school events</p>
           </div>
         </section>
+
+        {profile.role === 'teacher' && (
+          <section className="grid gap-4 md:grid-cols-2">
+            <div className="rounded-2xl bg-white shadow-sm border border-slate-100 px-4 py-4">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Your classes today</p>
+              {teacherClassesLoading && (
+                <p className="mt-2 text-xs text-slate-500">Loading classes...</p>
+              )}
+              {!teacherClassesLoading && teacherClasses.length === 0 && (
+                <p className="mt-2 text-xs text-slate-500">
+                  No classes found from your assignments yet. Create an assignment to link yourself to a class.
+                </p>
+              )}
+              {!teacherClassesLoading && teacherClasses.length > 0 && (
+                <ul className="mt-2 space-y-1 text-xs text-slate-700">
+                  {teacherClasses.map((cls) => (
+                    <li key={cls} className="flex items-center justify-between">
+                      <span className="font-medium">Class {cls}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            <div className="rounded-2xl bg-white shadow-sm border border-slate-100 px-4 py-4 flex flex-col justify-between gap-3">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Quick actions</p>
+                <p className="mt-1 text-xs text-slate-600">
+                  Jump straight to managing assignments and entering results for your classes.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <a
+                  href="/dashboard/assignments"
+                  className="inline-flex items-center rounded-full bg-indigo-600 px-3 py-1.5 text-[11px] font-medium text-white shadow-sm hover:bg-indigo-700"
+                >
+                  Manage assignments
+                </a>
+                <a
+                  href="/dashboard/results"
+                  className="inline-flex items-center rounded-full bg-slate-900 px-3 py-1.5 text-[11px] font-medium text-white shadow-sm hover:bg-slate-950"
+                >
+                  Enter results
+                </a>
+              </div>
+            </div>
+          </section>
+        )}
 
         {/* Main content + announcements */}
         <section className="grid gap-6 md:grid-cols-[minmax(0,2.1fr)_minmax(0,1.3fr)] items-start">

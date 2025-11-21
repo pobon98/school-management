@@ -10,6 +10,7 @@ type Assignment = {
   description: string | null;
   class: string | null;
   due_date: string | null;
+  file_url?: string | null;
 };
 
 export default function DashboardAssignmentsPage() {
@@ -23,6 +24,7 @@ export default function DashboardAssignmentsPage() {
   const [klass, setKlass] = useState("");
   const [due, setDue] = useState("");
   const [desc, setDesc] = useState("");
+  const [file, setFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -73,7 +75,7 @@ export default function DashboardAssignmentsPage() {
 
         const { data, error } = await supabase
           .from("assignments")
-          .select("id, title, description, class, due_date")
+          .select("id, title, description, class, due_date, file_url")
           .eq("class", foundClass)
           .order("due_date", { ascending: true });
 
@@ -84,13 +86,26 @@ export default function DashboardAssignmentsPage() {
           setAssignments(data as Assignment[]);
         }
         setLoading(false);
+
+        // Mark assignments as seen for this student so the sidebar badge clears
+        if (user.id) {
+          await supabase
+            .from("assignment_views")
+            .upsert(
+              {
+                user_id: user.id,
+                last_seen_at: new Date().toISOString(),
+              },
+              { onConflict: "user_id" }
+            );
+        }
         return;
       }
 
       // Admin/teacher: see all assignments
       const { data, error } = await supabase
         .from("assignments")
-        .select("id, title, description, class, due_date")
+        .select("id, title, description, class, due_date, file_url")
         .order("due_date", { ascending: true });
       if (error) {
         setError(error.message);
@@ -164,18 +179,56 @@ export default function DashboardAssignmentsPage() {
                   className="rounded-md border border-slate-200 bg-white px-2.5 py-2 text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                 />
               </div>
+              <div>
+                <input
+                  type="file"
+                  accept="application/pdf"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0] ?? null;
+                    setFile(f);
+                  }}
+                  className="block w-full text-xs text-slate-700 file:mr-2 file:rounded-md file:border file:border-slate-200 file:bg-white file:px-2 file:py-1.5 file:text-xs file:font-medium file:text-slate-700 hover:file:bg-slate-50"
+                />
+                <p className="mt-1 text-[10px] text-slate-500">Optional: upload a PDF assignment file.</p>
+              </div>
               <div className="flex justify-end">
                 <button
                   disabled={saving || !title.trim() || !klass.trim() || !user}
                   onClick={async () => {
                     if (!user || !title.trim() || !klass.trim()) return;
                     setSaving(true);
+                    setError(null);
+
+                    let fileUrl: string | null = null;
+                    if (file) {
+                      const filePath = `${user.id}/${Date.now()}-${file.name}`;
+                      const { data: uploadData, error: uploadError } = await supabase.storage
+                        .from("assignments")
+                        .upload(filePath, file, {
+                          cacheControl: "3600",
+                          upsert: false,
+                        });
+
+                      if (uploadError) {
+                        setError(uploadError.message);
+                        setSaving(false);
+                        return;
+                      }
+
+                      const { data: publicUrlData } = supabase.storage
+                        .from("assignments")
+                        .getPublicUrl(uploadData.path);
+
+                      fileUrl = publicUrlData.publicUrl;
+                    }
+
                     const { error: insertError } = await supabase.from("assignments").insert({
                       title: title.trim(),
                       description: desc.trim() || null,
                       class: klass.trim(),
                       due_date: due || null,
                       created_by: user.id,
+                      file_url: fileUrl,
                     });
                     if (insertError) {
                       setError(insertError.message);
@@ -184,9 +237,10 @@ export default function DashboardAssignmentsPage() {
                       setDesc("");
                       setKlass("");
                       setDue("");
+                      setFile(null);
                       const { data, error: reloadError } = await supabase
                         .from("assignments")
-                        .select("id, title, description, class, due_date")
+                        .select("id, title, description, class, due_date, file_url")
                         .order("due_date", { ascending: true });
                       if (reloadError) {
                         setError(reloadError.message);
@@ -221,6 +275,16 @@ export default function DashboardAssignmentsPage() {
                       )}
                       {a.class && (
                         <p className="mt-0.5 text-[10px] text-slate-500">Class: {a.class}</p>
+                      )}
+                      {a.file_url && (
+                        <a
+                          href={a.file_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="mt-1 inline-flex items-center text-[10px] font-medium text-indigo-700 hover:text-indigo-800 hover:underline"
+                        >
+                          Download PDF
+                        </a>
                       )}
                     </div>
                     {a.due_date && (
